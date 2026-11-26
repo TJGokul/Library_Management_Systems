@@ -1,7 +1,12 @@
-import React, { useState, useEffect } from 'react';
-import { X, BookPlus, Edit3 } from 'lucide-react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { X, BookPlus, Edit3, AlertCircle, CheckCircle } from 'lucide-react';
 
-export function BookModal({ isOpen, onClose, onSubmit, book = null, genres = [] }) {
+export function normalizeIsbn(raw) {
+  if (!raw) return '';
+  return raw.replace(/^isbn[:\s]*/i, '').trim();
+}
+
+export function BookModal({ isOpen, onClose, onSubmit, book = null, genres = [], existingBooks = [] }) {
   const isEdit = !!book;
   const [formData, setFormData] = useState({
     isbn: '',
@@ -43,6 +48,16 @@ export function BookModal({ isOpen, onClose, onSubmit, book = null, genres = [] 
     setError('');
   }, [book, isOpen, genres]);
 
+  // Real-time unique ISBN validation
+  const normalizedInputIsbn = useMemo(() => normalizeIsbn(formData.isbn), [formData.isbn]);
+
+  const duplicateBook = useMemo(() => {
+    if (!normalizedInputIsbn) return null;
+    return existingBooks.find(
+      (b) => normalizeIsbn(b.isbn).toLowerCase() === normalizedInputIsbn.toLowerCase() && b.id !== book?.id
+    );
+  }, [normalizedInputIsbn, existingBooks, book]);
+
   if (!isOpen) return null;
 
   const handleSubmit = async (e) => {
@@ -55,8 +70,14 @@ export function BookModal({ isOpen, onClose, onSubmit, book = null, genres = [] 
       return;
     }
 
-    if (!formData.isbn.trim()) {
-      setError('ISBN is required');
+    const cleanIsbn = normalizeIsbn(formData.isbn);
+    if (!cleanIsbn) {
+      setError('A valid ISBN is required');
+      return;
+    }
+
+    if (duplicateBook) {
+      setError(`Cannot add: ISBN '${cleanIsbn}' already exists for '${duplicateBook.title}'.`);
       return;
     }
 
@@ -64,6 +85,7 @@ export function BookModal({ isOpen, onClose, onSubmit, book = null, genres = [] 
     try {
       await onSubmit({
         ...formData,
+        isbn: cleanIsbn,
         genre: finalGenre,
         publishedYear: parseInt(formData.publishedYear) || null,
         totalCopies: parseInt(formData.totalCopies) || 1,
@@ -102,23 +124,55 @@ export function BookModal({ isOpen, onClose, onSubmit, book = null, genres = [] 
         {/* Body */}
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
           {error && (
-            <div className="p-3 bg-rose-50 border border-rose-200 text-rose-700 text-xs rounded-xl font-medium">
-              {error}
+            <div className="p-3 bg-rose-50 border border-rose-200 text-rose-700 text-xs rounded-xl font-medium flex items-start gap-2">
+              <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+              <span>{error}</span>
             </div>
           )}
 
+          {/* ISBN Field with Live Uniqueness Check */}
           <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">
-              ISBN (Unique Identifier) <span className="text-rose-500">*</span>
-            </label>
+            <div className="flex items-center justify-between mb-1">
+              <label className="block text-xs font-semibold text-slate-700">
+                ISBN (Unique Identifier) <span className="text-rose-500">*</span>
+              </label>
+              {normalizedInputIsbn && (
+                duplicateBook ? (
+                  <span className="text-[11px] font-semibold text-rose-600 flex items-center gap-1">
+                    <AlertCircle className="w-3.5 h-3.5" /> Already in catalog
+                  </span>
+                ) : (
+                  <span className="text-[11px] font-semibold text-emerald-600 flex items-center gap-1">
+                    <CheckCircle className="w-3.5 h-3.5" /> ISBN available
+                  </span>
+                )
+              )}
+            </div>
+
             <input
               type="text"
               required
               placeholder="e.g. 978-0132350884"
               value={formData.isbn}
               onChange={(e) => setFormData({ ...formData, isbn: e.target.value })}
-              className="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 font-mono"
+              className={`w-full px-3.5 py-2 rounded-xl border text-sm focus:outline-none font-mono transition-colors ${
+                duplicateBook
+                  ? 'border-rose-400 bg-rose-50/30 text-rose-900 focus:ring-2 focus:ring-rose-500/20'
+                  : normalizedInputIsbn
+                  ? 'border-emerald-400 bg-emerald-50/20 text-slate-900 focus:ring-2 focus:ring-emerald-500/20'
+                  : 'border-slate-200 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500'
+              }`}
             />
+
+            {duplicateBook && (
+              <div className="mt-1.5 p-2.5 rounded-xl bg-rose-50 border border-rose-200 text-xs text-rose-800 flex items-start gap-2 animate-fade-in">
+                <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                <div>
+                  <span className="font-bold">Duplicate ISBN Detected:</span> This ISBN is already assigned to{' '}
+                  <strong>"{duplicateBook.title}"</strong> ({duplicateBook.author}). Every book must have a unique ISBN.
+                </div>
+              </div>
+            )}
           </div>
 
           <div>
@@ -244,8 +298,12 @@ export function BookModal({ isOpen, onClose, onSubmit, book = null, genres = [] 
             </button>
             <button
               type="submit"
-              disabled={loading}
-              className="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold shadow-md shadow-indigo-100 transition-colors disabled:opacity-50"
+              disabled={loading || !!duplicateBook}
+              className={`px-5 py-2 rounded-xl text-white text-xs font-semibold shadow-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                duplicateBook
+                  ? 'bg-rose-400'
+                  : 'bg-indigo-600 hover:bg-indigo-700 shadow-indigo-100'
+              }`}
             >
               {loading ? 'Saving...' : isEdit ? 'Update Book' : 'Add Book'}
             </button>

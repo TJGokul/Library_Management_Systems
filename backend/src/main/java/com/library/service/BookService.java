@@ -35,10 +35,23 @@ public class BookService {
         this.inventoryTransactionRepository = inventoryTransactionRepository;
     }
 
+    public static String normalizeIsbn(String raw) {
+        if (raw == null) return "";
+        String clean = raw.trim();
+        // Remove leading 'ISBN:' or 'isbn:' or 'ISBN ' prefix if entered
+        clean = clean.replaceFirst("^(?i)isbn[:\\s]*", "").trim();
+        return clean;
+    }
+
     @Transactional
     public BookResponseDto createBook(BookRequestDto dto) {
-        if (bookRepository.existsByIsbn(dto.getIsbn().trim())) {
-            throw new DuplicateResourceException("A book with ISBN '" + dto.getIsbn().trim() + "' already exists.");
+        String normalizedIsbn = normalizeIsbn(dto.getIsbn());
+        if (normalizedIsbn.isEmpty()) {
+            throw new BusinessRuleViolationException("A valid ISBN is mandatory.");
+        }
+
+        if (bookRepository.existsByIsbn(normalizedIsbn)) {
+            throw new DuplicateResourceException("A book with ISBN '" + normalizedIsbn + "' already exists in catalog.");
         }
 
         if (dto.getTotalCopies() < 1) {
@@ -46,7 +59,7 @@ public class BookService {
         }
 
         Book book = new Book(
-                dto.getIsbn().trim(),
+                normalizedIsbn,
                 dto.getTitle().trim(),
                 dto.getAuthor().trim(),
                 dto.getGenre().trim(),
@@ -76,11 +89,16 @@ public class BookService {
         Book book = bookRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Book not found with ID: " + id));
 
-        if (bookRepository.existsByIsbnAndIdNot(dto.getIsbn().trim(), id)) {
-            throw new DuplicateResourceException("Another book already uses ISBN: " + dto.getIsbn().trim());
+        String normalizedIsbn = normalizeIsbn(dto.getIsbn());
+        if (normalizedIsbn.isEmpty()) {
+            throw new BusinessRuleViolationException("A valid ISBN is mandatory.");
         }
 
-        book.setIsbn(dto.getIsbn().trim());
+        if (bookRepository.existsByIsbnAndIdNot(normalizedIsbn, id)) {
+            throw new DuplicateResourceException("Another book already uses ISBN: " + normalizedIsbn);
+        }
+
+        book.setIsbn(normalizedIsbn);
         book.setTitle(dto.getTitle().trim());
         book.setAuthor(dto.getAuthor().trim());
         book.setGenre(dto.getGenre().trim());

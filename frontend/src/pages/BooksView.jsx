@@ -203,7 +203,7 @@ export function BooksView({
                       <td className="py-3.5 px-4">
                         <div className="font-bold text-slate-900 text-sm">{book.title}</div>
                         <div className="text-[11px] text-slate-400 font-mono mt-0.5">
-                          ISBN: {book.isbn}
+                          ISBN: {book.isbn ? book.isbn.replace(/^isbn[:\s]*/i, '') : ''}
                         </div>
                       </td>
 

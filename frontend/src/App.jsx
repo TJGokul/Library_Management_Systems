@@ -296,6 +296,7 @@ export function App() {
         onSubmit={handleSaveBook}
         book={editingBook}
         genres={genres}
+        existingBooks={books}
       />
 
       <StockModal
