@@ -95,8 +95,8 @@ export function InventoryView({ transactions, books, onAdjustStockClick }) {
                   <th className="py-3.5 px-4">Book Title & ISBN</th>
                   <th className="py-3.5 px-4 text-center">Type</th>
                   <th className="py-3.5 px-4 text-center">Quantity Delta</th>
-                  <th className="py-3.5 px-4 text-center">Available Stock (Before $\rightarrow$ After)</th>
-                  <th className="py-3.5 px-4 text-center">Total Stock (Before $\rightarrow$ After)</th>
+                  <th className="py-3.5 px-4 text-center">Available Stock (Before → After)</th>
+                  <th className="py-3.5 px-4 text-center">Total Stock (Before → After)</th>
                   <th className="py-3.5 px-4">Reason / Notes</th>
                 </tr>
               </thead>
@@ -147,12 +147,16 @@ export function InventoryView({ transactions, books, onAdjustStockClick }) {
 
                       {/* Available Before -> After */}
                       <td className="py-3.5 px-4 text-center font-mono text-slate-600">
-                        {tx.previousAvailable} $\rightarrow$ <strong className="text-slate-900">{tx.newAvailable}</strong>
+                        <span>{tx.previousAvailable}</span>
+                        <span className="mx-1.5 text-slate-400">→</span>
+                        <strong className="text-slate-900 font-bold">{tx.newAvailable}</strong>
                       </td>
 
                       {/* Total Before -> After */}
                       <td className="py-3.5 px-4 text-center font-mono text-slate-600">
-                        {tx.previousTotal} $\rightarrow$ <strong className="text-slate-900">{tx.newTotal}</strong>
+                        <span>{tx.previousTotal}</span>
+                        <span className="mx-1.5 text-slate-400">→</span>
+                        <strong className="text-slate-900 font-bold">{tx.newTotal}</strong>
                       </td>
 
                       {/* Reason */}
